@@ -1,0 +1,15 @@
+{
+    "{": "Llave de apertura",
+    "}": "Llave de cierre",
+    "(": "Paréntesis de apertura",
+    ")": "Paréntesis de cierre",
+    "[": "Corchete de apertura",
+    "]": "Corchete de cierre",
+    ",": "Coma",
+    ";": "Punto y coma",
+    ":": "Dos puntos",
+    ".": "Punto",
+    "->": "Operador flecha",
+    "...": "Elipsis",
+    "::": "Operador de resolución de ámbito"
+}
