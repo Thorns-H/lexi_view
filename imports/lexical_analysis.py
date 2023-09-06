@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog
+from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor, QStandardItem, QStandardItemModel
 from PyQt5 import uic
 import json
+import re
 
 # Método helper encargado de cargar los tokens en memoria.
 
@@ -28,7 +30,7 @@ class lexical_analysis(QMainWindow):
 
         self.keywords: dict = load_tokens('tokens/keywords.json')
         self.punctuation: dict = load_tokens('tokens/punctuation.json')
-        self.arithmetic_operators: dict = load_tokens('tokens/arithmetic_operators.json')
+        self.operators: dict = load_tokens('tokens/operators.json')
 
     # Método encargado de permitir la carga de archivos locales.
 
@@ -45,4 +47,42 @@ class lexical_analysis(QMainWindow):
     # TODO: Es el método que arrojará los logs y hará el analisis.
 
     def compile_code(self) -> None:
-        ...
+
+        code_text = self.code_display.toPlainText()
+        pattern = r'\b(int|char|if|else|while|for|return|[a-zA-Z_]\w*|\d+|[;,.(){}\[\]])\b'
+
+        tokens = re.findall(pattern, code_text)
+
+        keywords = load_tokens('tokens/keywords.json')
+        punctuation = load_tokens('tokens/punctuation.json')
+        operators = load_tokens('tokens/operators.json')
+
+        model = QStandardItemModel()
+        self.token_view.setModel(model)
+
+        found_tokens: int = 0
+
+        for token in tokens:
+            if token in keywords:
+                category = keywords[token]
+            elif token in punctuation:
+                category = punctuation[token]
+            elif token in operators:
+                category = operators[token]
+            else:
+                category = 'Identificador o Constante'
+
+            token_item = QStandardItem(token)
+            category_item = QStandardItem(category)
+
+            model.appendRow([token_item, category_item])
+            found_tokens += 1
+
+        green_color = QColor(0, 255, 0)
+        green_format = QTextCharFormat()
+        green_format.setForeground(green_color)
+
+        cursor = self.logs_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.setCharFormat(green_format)
+        cursor.insertText(f"Tokens encontrados: {found_tokens}" + '\n')

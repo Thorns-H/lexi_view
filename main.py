@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QApplication
 from imports.lexical_analysis import *
 
-def main():
+def main() -> None:
     app = QApplication([])
     window = lexical_analysis()
     screen_geometry = app.desktop().availableGeometry()
