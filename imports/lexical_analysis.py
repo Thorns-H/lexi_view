@@ -3,12 +3,21 @@ from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor, QStandardItem, QSt
 from PyQt5 import uic
 import json
 import re
+import time
 
 # Método helper encargado de cargar los tokens en memoria.
 
 def load_tokens(path: str) -> dict:
     with open(path, 'r') as json_file:
         return json.load(json_file)
+    
+# Método helper para separar las tuplas en las expresiones.
+
+def get_token(tupla) -> str:
+    for token in tupla:
+        if token != '':
+            return token
+    return None 
 
 # Clase principal de la interfaz gráfica.
 
@@ -44,31 +53,34 @@ class lexical_analysis(QMainWindow):
                 file_content = file.read()
                 self.code_display.setPlainText(file_content)
 
-    # TODO: Es el método que arrojará los logs y hará el analisis.
+    # Es el método que arrojará los logs y hará el analisis.
 
     def compile_code(self) -> None:
 
+        start_time = time.time()
+
         code_text = self.code_display.toPlainText()
-        pattern = r'\b(int|char|if|else|while|for|return|[a-zA-Z_]\w*|\d+|[;,.(){}\[\]])\b'
+        pattern = r'(\#|\[|\]|\,|\;|\:|\.|\-\>|\.\.\.|\:\:|\{|\}|\=|\+|\-|\*|\/)|\b(int|char|if|else|while|for|return|[a-zA-Z_]\w*|\d+)\b'
 
         tokens = re.findall(pattern, code_text)
 
-        keywords = load_tokens('tokens/keywords.json')
-        punctuation = load_tokens('tokens/punctuation.json')
-        operators = load_tokens('tokens/operators.json')
+        converted_tokens: list = []
+
+        for token in tokens:
+            converted_tokens.append(get_token(token))
 
         model = QStandardItemModel()
         self.token_view.setModel(model)
 
         found_tokens: int = 0
 
-        for token in tokens:
-            if token in keywords:
-                category = keywords[token]
-            elif token in punctuation:
-                category = punctuation[token]
-            elif token in operators:
-                category = operators[token]
+        for token in converted_tokens:
+            if token in self.keywords:
+                category = self.keywords[token]
+            elif token in self.punctuation:
+                category = self.punctuation[token]
+            elif token in self.operators:
+                category = self.operators[token]
             else:
                 category = 'Identificador o Constante'
 
@@ -78,11 +90,9 @@ class lexical_analysis(QMainWindow):
             model.appendRow([token_item, category_item])
             found_tokens += 1
 
-        green_color = QColor(0, 255, 0)
-        green_format = QTextCharFormat()
-        green_format.setForeground(green_color)
-
         cursor = self.logs_display.textCursor()
         cursor.movePosition(QTextCursor.End)
-        cursor.setCharFormat(green_format)
-        cursor.insertText(f"Tokens encontrados: {found_tokens}" + '\n')
+
+        end_time = time.time()
+
+        cursor.insertText(f"Found {found_tokens} tokens in {end_time - start_time:.5f}s" + '\n')
