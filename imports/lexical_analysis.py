@@ -28,7 +28,7 @@ class lexical_analysis(QMainWindow):
     def __init__(self):
         super(lexical_analysis, self).__init__()
         uic.loadUi('graphics/main_window.ui', self) # Carga de nuestra interfaz de QtDesigner.
-        self.setWindowTitle('Lexical Analysis GUI')
+        self.setWindowTitle('Lexi View')
 
         # Conexión de métodos con botones 'compile' y 'load file'.
 
@@ -60,11 +60,15 @@ class lexical_analysis(QMainWindow):
         start_time = time.time()
 
         code_text = self.code_display.toPlainText()
-        pattern = r'(\#|\[|\]|\,|\;|\:|\.|\-\>|\.\.\.|\:\:|\{|\}|\=|\+|\-|\*|\/)|\b(int|char|if|else|while|for|return|[a-zA-Z_]\w*|\d+)\b'
+        pattern = r'(\>\>|\"|\#|\[|\]|\,|\;|\:|\.|\-\>|\.\.\.|\:\:|\{|\}|\=|\+\+|\+|\-\-|\-|\*|\/|\%|\=\=|\!\=|\<|\>|\<\=|\>\=|\&\&|\|\||!|&|\||\^|~|<<|>>)|(\b[a-zA-Z_]\w*|\d+)\b'
+
+        # Encontramos todas las tuplas con tokens.
 
         tokens = re.findall(pattern, code_text)
 
         converted_tokens: list = []
+
+        # Obtenemos todos los tokens separados.
 
         for token in tokens:
             converted_tokens.append(get_token(token))
@@ -73,6 +77,8 @@ class lexical_analysis(QMainWindow):
         self.token_view.setModel(model)
 
         found_tokens: int = 0
+
+        # Clasificamos los tokens según los json pertenecientes.
 
         for token in converted_tokens:
             if token in self.keywords:
@@ -94,5 +100,7 @@ class lexical_analysis(QMainWindow):
         cursor.movePosition(QTextCursor.End)
 
         end_time = time.time()
+
+        # Mostramos los logs de los tokens encontrados en el codigo cargado en la gui.
 
         cursor.insertText(f"Found {found_tokens} tokens in {end_time - start_time:.5f}s" + '\n')
