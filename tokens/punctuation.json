@@ -11,5 +11,7 @@
     ".": "Punto",
     "->": "Operador flecha",
     "...": "Elipsis",
-    "::": "Operador de resolución de ámbito"
+    "::": "Operador de resolución de ámbito",
+    "#": "Simbolo de cabecera",
+    "\"": "Inicio o fin de cadena"
 }
