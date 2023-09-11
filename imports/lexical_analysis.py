@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog
-from PyQt5.QtGui import QTextCharFormat, QTextCursor, QColor, QStandardItem, QStandardItemModel
+from PyQt5.QtGui import QTextCursor, QStandardItem, QStandardItemModel
 from PyQt5 import uic
 import json
 import re
@@ -13,8 +13,8 @@ def load_tokens(path: str) -> dict:
     
 # Método helper para separar las tuplas en las expresiones.
 
-def get_token(tupla) -> str:
-    for token in tupla:
+def get_token(expressions: tuple) -> str:
+    for token in expressions:
         if token != '':
             return token
     return None 
@@ -25,7 +25,7 @@ class lexical_analysis(QMainWindow):
 
     # Constructor de nuestro objeto.
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(lexical_analysis, self).__init__()
         uic.loadUi('graphics/main_window.ui', self) # Carga de nuestra interfaz de QtDesigner.
         self.setWindowTitle('Lexi View')
@@ -41,11 +41,17 @@ class lexical_analysis(QMainWindow):
         self.punctuation: dict = load_tokens('tokens/punctuation.json')
         self.operators: dict = load_tokens('tokens/operators.json')
 
+        # Cargamos los patrones de tipos de datos.
+
+        self.integer_pattern = re.compile(r'\b\d+\b')
+        self.float_pattern = re.compile(r'\b\d+\.\d+\b')
+        self.string_pattern = re.compile(r'(\'[^\']*\'|\"[^\"]*\")')
+
     # Método encargado de permitir la carga de archivos locales.
 
     def load_file(self) -> None:
         
-        file_filter = "Archivos C++ (*.cpp *.hpp *.h);;Todos los archivos (*)"
+        file_filter = "Archivos C++ / Tokens (*.cpp *.hpp *.h *.tokens);;Todos los archivos (*)"
         file_dialog = QFileDialog.getOpenFileName(self, 'Seleccionar archivo', '', file_filter)
 
         if file_dialog[0]:
@@ -60,7 +66,7 @@ class lexical_analysis(QMainWindow):
         start_time = time.time()
 
         code_text = self.code_display.toPlainText()
-        pattern = r'(\>\>|\"|\#|\[|\]|\,|\;|\:|\.|\-\>|\.\.\.|\:\:|\{|\}|\=|\+\+|\+|\-\-|\-|\*|\/|\%|\=\=|\!\=|\<|\>|\<\=|\>\=|\&\&|\|\||!|&|\||\^|~|<<|>>)|(\b[a-zA-Z_]\w*|\d+)\b'
+        pattern = r'(<<|>>|\#|\[|\]|\,|\;|\:\:|\:|\.|\-\>|\.\.\.|\{|\}|\=|\+\+|\+|\-\-|\-|\*|\/|\%|\=\=|\!\=|\<|\>|\<\=|\>\=|\&\&|\|\||!|&|\||\^|~)|(\d+\.\d+|\d+|\"[^\"]*\")|([a-zA-Z_]\w*)\b'
 
         # Encontramos todas las tuplas con tokens.
 
@@ -87,8 +93,14 @@ class lexical_analysis(QMainWindow):
                 category = self.punctuation[token]
             elif token in self.operators:
                 category = self.operators[token]
+            elif self.integer_pattern.match(token):
+                category = 'Número entero'
+            elif self.float_pattern.match(token):
+                category = 'Número con punto flotante'
+            elif self.string_pattern.match(token):
+                category = 'Cadena de caracterés'
             else:
-                category = 'Identificador o Constante'
+                category = 'Identificador'
 
             token_item = QStandardItem(token)
             category_item = QStandardItem(category)
