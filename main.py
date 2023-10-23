@@ -1,4 +1,8 @@
 from PyQt5.QtWidgets import QApplication
+import sys
+
+sys.path.append('imports/')
+
 from imports.lexical_analysis import *
 
 def main() -> None:

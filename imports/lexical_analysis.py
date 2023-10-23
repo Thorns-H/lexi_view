@@ -1,9 +1,24 @@
 from PyQt5.QtWidgets import QMainWindow, QFileDialog
 from PyQt5.QtGui import QTextCursor, QStandardItem, QStandardItemModel
 from PyQt5 import uic
+
+from antlr4 import InputStream, CommonTokenStream
+from antlr4.error.ErrorListener import ConsoleErrorListener
+from CPP14Lexer import CPP14Lexer
+from CPP14Parser import CPP14Parser
+
 import json
-import re
 import time
+import re
+
+"""
+from PIL import Image, ImageTk
+import antlr4
+import re
+import subprocess
+import pygraphviz as pgv
+import tkinter as tk
+"""
 
 # Método helper encargado de cargar los tokens en memoria.
 
@@ -30,6 +45,8 @@ class lexical_analysis(QMainWindow):
         uic.loadUi('graphics/main_window.ui', self) # Carga de nuestra interfaz de QtDesigner.
         self.setWindowTitle('Lexi View')
 
+        self.error_listener = MyErrorListener(self.logs_display)
+
         # Conexión de métodos con botones 'compile' y 'load file'.
 
         self.load_file_button.clicked.connect(self.load_file)
@@ -51,7 +68,7 @@ class lexical_analysis(QMainWindow):
 
     def load_file(self) -> None:
         
-        file_filter = "Archivos C++ / Tokens (*.cpp *.hpp *.h *.tokens);;Todos los archivos (*)"
+        file_filter = "Archivos C++ / Tokens (*.cpp *.hpp *.h);;Todos los archivos (*)"
         file_dialog = QFileDialog.getOpenFileName(self, 'Seleccionar archivo', '', file_filter)
 
         if file_dialog[0]:
@@ -59,13 +76,12 @@ class lexical_analysis(QMainWindow):
                 file_content = file.read()
                 self.code_display.setPlainText(file_content)
 
-    # Es el método que arrojará los logs y hará el analisis.
-
     def compile_code(self) -> None:
-
+        
         start_time = time.time()
 
         code_text = self.code_display.toPlainText()
+
         pattern = r'(<<|>>|\#|\[|\]|\,|\;|\:\:|\:|\.|\-\>|\.\.\.|\{|\}|\=|\+\+|\+|\-\-|\-|\*|\/|\%|\=\=|\!\=|\<|\>|\<\=|\>\=|\&\&|\|\||!|&|\||\^|~)|(\d+\.\d+|\d+|\"[^\"]*\")|([a-zA-Z_]\w*)\b'
 
         # Encontramos todas las tuplas con tokens.
@@ -116,3 +132,54 @@ class lexical_analysis(QMainWindow):
         # Mostramos los logs de los tokens encontrados en el codigo cargado en la gui.
 
         cursor.insertText(f"Found {found_tokens} tokens in {end_time - start_time:.5f}s" + '\n')
+
+        start_time = time.time()
+
+        code_text = self.code_display.toPlainText()
+        
+        error_listener = MyErrorListener(self.logs_display)
+        
+        input_stream = InputStream(code_text)
+        lexer = CPP14Lexer(input_stream)
+        lexer.removeErrorListeners()
+        lexer.addErrorListener(error_listener)
+        tokens = CommonTokenStream(lexer)
+
+        tokens = CommonTokenStream(lexer)
+
+        parser = CPP14Parser(tokens)
+        parser.removeErrorListeners()
+        parser.addErrorListener(error_listener)
+        
+        tree = parser.translationUnit()
+
+        """
+
+        dot_content = tree.toStringTree(recog = parser)
+
+        dot_content = re.sub(r'\(\s*([^()]+)\s*\)', r'\1', dot_content)
+        dot_content = re.sub(r'(<[^<>]+>)', '', dot_content)  
+        dot_content = dot_content.replace(';', '')  
+
+        with open("tree.dot", 'w') as dot_file:
+            dot_file.write(dot_content)
+
+        subprocess.call(['dot', '-Tpng', 'tree.dot', '-o', 'tree.png'])
+
+        """
+
+        cursor = self.logs_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+
+        end_time = time.time()
+
+        cursor.insertText(f"Finished parsing in {end_time - start_time:.5f}s" + '\n')
+
+class MyErrorListener(ConsoleErrorListener):
+    def __init__(self, logs_display):
+        self.cursor = logs_display.textCursor()
+
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        error_message = f"Error en línea {line}:{column}: {msg}\n"
+        self.cursor.movePosition(QTextCursor.End)
+        self.cursor.insertText(error_message)
