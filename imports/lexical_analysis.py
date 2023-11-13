@@ -11,14 +11,33 @@ import json
 import time
 import re
 
-"""
-from PIL import Image, ImageTk
-import antlr4
-import re
-import subprocess
-import pygraphviz as pgv
-import tkinter as tk
-"""
+def format_variables(variables: tuple) -> dict:
+
+    dictionary = {}
+
+    for variable in variables:
+        if len(variable) >= 2:
+            identifier = variable[1]
+            value = [variable[2]]
+            if identifier in dictionary:
+                dictionary[identifier].extend(value)
+            else:
+                dictionary[identifier] = value
+
+    return dictionary
+
+def find_variable_references(variable_name, cpp_code) -> list:
+    regular_expression = rf'\b{re.escape(variable_name)}\b'
+    matches = re.finditer(regular_expression, cpp_code)
+    
+    referenced_lines = []
+
+    for match in matches:
+        start = match.start()
+        line_number = cpp_code.count('\n', 0, start) + 1
+        referenced_lines.append(line_number)
+
+    return referenced_lines
 
 # Método helper encargado de cargar los tokens en memoria.
 
@@ -33,6 +52,23 @@ def get_token(expressions: tuple) -> str:
         if token != '':
             return token
     return None 
+
+# Clase secundaria para los tokens.
+class Identifier:
+    def __init__(self, text, line, column, data_type):
+        self.text = text
+        self.line = line
+        self.column = column
+        self.data_type = data_type
+
+    def __str__(self) -> str:
+        return f"Identifier: {self.text}, Line: {self.line}:{self.column}, Type: {self.data_type}"
+    
+    def is_numeric(self) -> bool:
+        if self.data_type in ['int', 'float']:
+            return True
+        else:
+            return False
 
 # Clase principal de la interfaz gráfica.
 
@@ -51,6 +87,7 @@ class lexical_analysis(QMainWindow):
 
         self.load_file_button.clicked.connect(self.load_file)
         self.compile_button.clicked.connect(self.compile_code)
+        self.search_button.clicked.connect(self.search_variable)
 
         # Carga de tokens válidos en el compilador (C++) en memoria.
 
@@ -83,6 +120,7 @@ class lexical_analysis(QMainWindow):
         code_text = self.code_display.toPlainText()
 
         pattern = r'(<<|>>|\#|\[|\]|\,|\;|\:\:|\:|\.|\-\>|\.\.\.|\{|\}|\=|\+\+|\+|\-\-|\-|\*|\/|\%|\=\=|\!\=|\<|\>|\<\=|\>\=|\&\&|\|\||!|&|\||\^|~)|(\d+\.\d+|\d+|\"[^\"]*\")|([a-zA-Z_]\w*)\b'
+        variable_pattern = r'\s*(\w+)\s+(\w+)\s*(?:=\s*([^;]+))?;\s*'
 
         # Encontramos todas las tuplas con tokens.
 
@@ -146,27 +184,15 @@ class lexical_analysis(QMainWindow):
         tokens = CommonTokenStream(lexer)
 
         tokens = CommonTokenStream(lexer)
-
         parser = CPP14Parser(tokens)
         parser.removeErrorListeners()
         parser.addErrorListener(error_listener)
         
         tree = parser.translationUnit()
 
-        """
-
-        dot_content = tree.toStringTree(recog = parser)
-
-        dot_content = re.sub(r'\(\s*([^()]+)\s*\)', r'\1', dot_content)
-        dot_content = re.sub(r'(<[^<>]+>)', '', dot_content)  
-        dot_content = dot_content.replace(';', '')  
-
-        with open("tree.dot", 'w') as dot_file:
-            dot_file.write(dot_content)
-
-        subprocess.call(['dot', '-Tpng', 'tree.dot', '-o', 'tree.png'])
-
-        """
+        input_stream = InputStream(code_text)
+        lexer = CPP14Lexer(input_stream)
+        tokens_track = lexer.getAllTokens()
 
         cursor = self.logs_display.textCursor()
         cursor.movePosition(QTextCursor.End)
@@ -175,11 +201,108 @@ class lexical_analysis(QMainWindow):
 
         cursor.insertText(f"Finished parsing in {end_time - start_time:.5f}s" + '\n')
 
+        start_time = time.time()
+
+        custom_identifiers = []
+
+        for i in range(0, len(tokens_track)):
+            current_token = tokens_track[i]
+            
+            if current_token.text in ['int', 'float', 'string', 'char', 'bool']:
+                next_token = tokens_track[i + 1]
+                
+                identifier = Identifier(
+                    text = next_token.text,
+                    line = next_token.line,
+                    column = next_token.column,
+                    data_type = current_token.text
+                )
+                
+                custom_identifiers.append(identifier)
+
+        assign_pattern = re.compile(r'(\w+)\s*=\s*(\d+|\d*\.\d+|".+?")')
+        matches = assign_pattern.finditer(code_text)
+
+        cursor = self.logs_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+
+        for match in matches:
+            identifier_name = match.group(1)
+            value = match.group(2)
+
+            matching_identifiers = [identifier for identifier in custom_identifiers if identifier.text == identifier_name]
+
+            if matching_identifiers:
+                identifier = matching_identifiers[0]
+
+                if identifier.is_numeric():
+                    if not (value.isdigit() or (value.count('.') == 1 and value.replace('.', '').isdigit())):
+                        cursor.insertText(f"Error at line {identifier.line}:{identifier.column}, '{identifier.text}' value must be of type '{identifier.data_type}'")
+                else:
+                    if not (value.startswith('"') and value.endswith('"')):
+                        cursor.insertText(f"Error at line {identifier.line}:{identifier.column}, '{identifier.text}' value must be of type '{identifier.data_type}'")
+
+        # Expresión regular para buscar operaciones de la forma 'identifier.text operador operand;'
+        operation_pattern = re.compile(r'(\b\w+\b)\s*([\+\-\*/])\s*(\w+|\d+);')
+
+        # Busca todas las coincidencias en el texto
+        matches = operation_pattern.finditer(code_text)
+
+        # Verifica la validez de las operaciones
+        for match in matches:
+            operand1 = match.group(1)
+            operator = match.group(2)
+            operand2 = match.group(3)
+
+            # Verifica la validez de la operación según tus reglas semánticas
+            matching_identifiers = [identifier for identifier in custom_identifiers if identifier.text == operand1]
+
+            if matching_identifiers:
+                # La operación es válida si ambos operandos tienen el mismo tipo de datos
+                identifier = matching_identifiers[0]
+                if isinstance(operand2, str) and operand2.isnumeric() and identifier.is_numeric():
+                    cursor.insertText(f"Operación válida: {operand1} {operator} {operand2}\n")
+                elif isinstance(operand2, str) and operand2.startswith('"') and operand2.endswith('"') and not identifier.is_numeric():
+                    cursor.insertText(f"Operación válida: {operand1} {operator} {operand2}\n")
+                else:
+                    cursor.insertText(f"Error cannot perform operation {operand1} {operator} {operand2}\n")
+
+        end_time = time.time()
+
+        cursor.insertText(f"Finished verifications in {end_time - start_time:.5f}s" + '\n')
+
+    def search_variable(self) -> None:
+
+        variable_name = self.input.text()
+
+        start_time = time.time()
+
+        code_text = self.code_display.toPlainText()
+
+        variable_pattern = r'\s*(\w+)\s+(\w+)\s*(?:=\s*([^;]+))?;\s*'
+
+        variables = re.findall(variable_pattern, code_text)
+        variables = format_variables(variables)
+
+        cursor = self.variable_logs.textCursor()
+        cursor.movePosition(QTextCursor.End)
+
+        if variable_name in variables:
+            cursor.insertText(f'{variable_name} : {variables[variable_name]}' + '\n')
+        else:
+            cursor.insertText(f'Variable {variable_name} not found.' + '\n')
+
+        end_time = time.time()
+
+        cursor = self.logs_display.textCursor()
+        cursor.movePosition(QTextCursor.End)
+
+        cursor.insertText(f"Finished variable search in {end_time - start_time:.5f}s" + '\n')
 class MyErrorListener(ConsoleErrorListener):
     def __init__(self, logs_display):
         self.cursor = logs_display.textCursor()
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        error_message = f"Error en línea {line}:{column}: {msg}\n"
+        error_message = f"Error at line {line}:{column}: {msg}\n"
         self.cursor.movePosition(QTextCursor.End)
         self.cursor.insertText(error_message)
