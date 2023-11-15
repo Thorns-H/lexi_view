@@ -248,24 +248,21 @@ class lexical_analysis(QMainWindow):
         # Busca todas las coincidencias en el texto
         matches = operation_pattern.finditer(code_text)
 
-        # Verifica la validez de las operaciones
         for match in matches:
             operand1 = match.group(1)
             operator = match.group(2)
             operand2 = match.group(3)
 
-            # Verifica la validez de la operación según tus reglas semánticas
             matching_identifiers = [identifier for identifier in custom_identifiers if identifier.text == operand1]
 
             if matching_identifiers:
-                # La operación es válida si ambos operandos tienen el mismo tipo de datos
                 identifier = matching_identifiers[0]
                 if isinstance(operand2, str) and operand2.isnumeric() and identifier.is_numeric():
-                    cursor.insertText(f"Operación válida: {operand1} {operator} {operand2}\n")
+                    ...
                 elif isinstance(operand2, str) and operand2.startswith('"') and operand2.endswith('"') and not identifier.is_numeric():
-                    cursor.insertText(f"Operación válida: {operand1} {operator} {operand2}\n")
+                    ...
                 else:
-                    cursor.insertText(f"Error cannot perform operation {operand1} {operator} {operand2}\n")
+                    cursor.insertText(f"Error cannot perform operation '{operand1} {operator} {operand2}'\n")
 
         end_time = time.time()
 
