@@ -10,6 +10,7 @@ from CPP14Parser import CPP14Parser
 import json
 import time
 import re
+import os
 
 def format_variables(variables: tuple) -> dict:
 
@@ -230,6 +231,8 @@ class lexical_analysis(QMainWindow):
             identifier_name = match.group(1)
             value = match.group(2)
 
+            # Verifica si el identificador en la expresion esta definido.
+
             matching_identifiers = [identifier for identifier in custom_identifiers if identifier.text == identifier_name]
 
             if matching_identifiers:
@@ -268,6 +271,18 @@ class lexical_analysis(QMainWindow):
 
         cursor.insertText(f"Finished verifications in {end_time - start_time:.5f}s" + '\n')
 
+        code_text = self.code_display.toPlainText()
+
+        with open('run_time.cpp', 'w') as temp_file:
+            temp_file.write(code_text)
+            temp_file.close()
+
+        os.system('g++ run_time.cpp')
+        os.system('objdump --disassemble-all a.out > objdump_output.txt')
+        os.system("awk '/<main>:/,/^$/' objdump_output.txt > machine_code.asm")
+
+        os.system('rm run_time.cpp a.out objdump_output.txt')
+
     def search_variable(self) -> None:
 
         variable_name = self.input.text()
@@ -295,6 +310,7 @@ class lexical_analysis(QMainWindow):
         cursor.movePosition(QTextCursor.End)
 
         cursor.insertText(f"Finished variable search in {end_time - start_time:.5f}s" + '\n')
+        
 class MyErrorListener(ConsoleErrorListener):
     def __init__(self, logs_display):
         self.cursor = logs_display.textCursor()
